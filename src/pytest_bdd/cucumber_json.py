@@ -28,13 +28,21 @@ def add_options(parser: Parser) -> None:
         default=None,
         help="create cucumber json style report file at given path.",
     )
+    group.addoption(
+        "--outline-tag",
+        dest="outline_tag",
+        action="store",
+        default=None,
+        help="write the tag for read individually the scenarios.",
+    )
 
 
 def configure(config: Config) -> None:
     cucumber_json_path = config.option.cucumber_json_path
+    outline_tag = config.option.outline_tag
     # prevent opening json log on worker nodes (xdist)
     if cucumber_json_path and not hasattr(config, "workerinput"):
-        config._bddcucumberjson = LogBDDCucumberJSON(cucumber_json_path)
+        config._bddcucumberjson = LogBDDCucumberJSON(cucumber_json_path, outline_tag)
         config.pluginmanager.register(config._bddcucumberjson)
 
 
@@ -49,10 +57,11 @@ class LogBDDCucumberJSON:
 
     """Logging plugin for cucumber like json output."""
 
-    def __init__(self, logfile: str) -> None:
+    def __init__(self, logfile: str, outline_tag: str) -> None:
         logfile = os.path.expanduser(os.path.expandvars(logfile))
         self.logfile = os.path.normpath(os.path.abspath(logfile))
         self.features: dict[str, dict] = {}
+        self.outline_tag = outline_tag
 
     def _get_result(self, step: dict[str, Any], report: TestReport, error_message: bool = False) -> dict[str, Any]:
         """Get scenario test run result.
@@ -141,6 +150,26 @@ class LogBDDCucumberJSON:
         self.suite_start_time = time.time()
 
     def pytest_sessionfinish(self) -> None:
+        
+        if self.outline_tag:
+
+            for feature in self.features.values():
+                scenarios = feature["elements"]
+                count = 0
+                current_scenario = ''
+                for scenario in scenarios:
+                    actual_scenario = scenario['id'].split('[')[0]
+                    if actual_scenario != current_scenario:
+                        count = 0
+                        tags = scenario["tags"]
+                        current_scenario = actual_scenario
+                        outline_tags_scenario = [tag for tag in [element['name'] for element in tags] if tag.startswith(self.outline_tag)]
+                        scenario["tags"] = [tag for tag in tags if tag.get('name') == outline_tags_scenario[count]]
+                        continue
+                    
+                    count += 1
+                    scenario["tags"] = [tag for tag in tags if tag.get('name') == outline_tags_scenario[count]]
+
         with open(self.logfile, "w", encoding="utf-8") as logfile:
             logfile.write(json.dumps(list(self.features.values())))
 
