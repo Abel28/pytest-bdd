@@ -1060,6 +1060,39 @@ To enable gherkin-formatted output on terminal, use
 
     pytest --gherkin-terminal-reporter
 
+If you want to use an individual label for each example of scenario outline, you can do it as follows:
+
+.. code-block:: gherkin
+
+    @test-1 @test-2 @test-3 @dryrun
+    Scenario Outline: User registration with different email domains
+    Given I am on the registration page
+    When I enter my "<email>" and choose a password
+    And I click the "Register" button
+    Then I should see a welcome message
+    And my account should be created
+
+    Examples:
+      | email                |
+      | john.doe@fmail.com   | #test-1
+      | jane.smith@yagoo.com | #test-2
+      | mike.jones@lotmail.com | #test-3
+
+In this way, it must be ensured that the beginning of the tags must begin with a unique expression and that they do not contain other tags.
+
+::
+
+    pytest --cucumberjson=<path to json report> --outline-tag=<name of specific tag>
+
+Example:
+
+::
+
+    pytest --cucumberjson=<path to json report> --outline-tag=test
+
+
+This will help explicitly to be able to upload tagged reports in jira, and thus only read the failed examples for each scenario.
+
 
 Test code generation helpers
 ----------------------------
